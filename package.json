@@ -4,6 +4,13 @@
   "private": true,
   "type": "module",
   "description": "One Telegram bot, one group with Topics: each topic drives Claude Code in its own project folder.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nguyencaotai1969/telegram-bot-router.git"
+  },
+  "homepage": "https://github.com/nguyencaotai1969/telegram-bot-router#readme",
+  "keywords": ["claude", "claude-code", "telegram", "telegram-bot", "ai-agent", "remote-control", "bun", "typescript"],
   "scripts": {
     "start": "bun run src/main.ts",
     "test": "bun test --timeout 30000",
