@@ -21,6 +21,7 @@
 - ⏳ **Live progress**: one message is edited to show Claude's latest steps.
 - 🧠 **Session-size warnings** (tokens and message count), with a one-tap `/new`.
 - 🎛️ **Per-topic model** with `/model` buttons.
+- 🧩 **Per-project skills** with `/skills` buttons: pick Ponytail or ClaudeKit skills to copy into the project.
 - 🚦 **Parallel limit** across topics, run timeout, stale-message skip, single-instance lock.
 - 🔒 **Locked to your user ID and your group**; secret files (`.env`, SSH keys, `.pem`) are never uploaded.
 
@@ -65,6 +66,7 @@ Bot:   Fixed 2 tests in tests/api.test.ts …
 | Show a bug or a design | Send a photo (or album, or file) with a caption: "the layout breaks like this, fix it" |
 | Get an image or file back | "take a screenshot of the home page and send it to me", "send me the report you made" |
 | Change model | `/model` and tap a button, or `/model opus` |
+| Add skills to the project | `/skills`, pick a source, tap a skill (tap again to remove) |
 | Start a new topic of conversation | `/new` (long sessions get slower and costlier; the bot reminds you) |
 | Stop now | `/stop` |
 | See what is going on | `/status` |
@@ -84,6 +86,7 @@ Photos and files you send are saved in `data/inbox/` (deleted after 7 days) and 
 | `/status` | Project, session, context size, whether Claude is working / warm / closed |
 | `/new` | Next message starts a fresh conversation |
 | `/model` | Pick the topic's model with buttons, or `/model <name>`. Applies to the running Claude without losing context |
+| `/skills` | Pick skills with buttons: a source (Ponytail, ClaudeKit), then a skill to copy into the project's `.claude/skills` (✓ = already there; tap again to remove). Skills come from this machine: the installed ponytail plugin, and the ClaudeKit skills in `~/.claude/skills`. Each copy gets a `.router-skill.json` listing its files; only a copy whose files are all unchanged is removed, so a skill the project wrote or edited is never overwritten or removed. ClaudeKit's shared `_shared` and `common` folders come along, since some skills import them. Secrets (`.env`, keys), links and caches are not copied |
 | `/stop` | Stop the current task and close the topic's Claude process (and everything it started) |
 | `/topics` | Topics bound in this group |
 | `/unbind` | Unbind the topic |

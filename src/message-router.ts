@@ -3,6 +3,7 @@ import { parseCommand } from './command-parse'
 import { hasAttachment } from './telegram-attachments'
 import type { TgCallbackQuery, TgMessage } from './telegram-types'
 import { onModelButton } from './topic-model-choice'
+import { onSkillButton } from './topic-skill-choice'
 import { topicKey } from './topic-store'
 import { errorText, type RunDeps, type TopicContext } from './topic-run'
 
@@ -31,7 +32,7 @@ export class MessageRouter {
     }
   }
 
-  /** A press on one of the bot's inline buttons (the /model panel): same access rules as messages. */
+  /** A press on one of the bot's inline buttons (the /model and /skills panels): same access rules as messages. */
   async handleButton(query: TgCallbackQuery): Promise<void> {
     const { api, config } = this.deps
     const message = query.message
@@ -43,10 +44,13 @@ export class MessageRouter {
       }
       if (message.date === 0) {
         // Too old for Telegram to say which topic it is in: acting on it would hit the General topic.
-        await api.answerCallback(query.id, '⌛ Bảng chọn này đã cũ: gõ /model để mở lại.')
+        await api.answerCallback(query.id, '⌛ Bảng chọn này đã cũ: gõ lại lệnh (/model, /skills) để mở bảng mới.')
         return
       }
-      if (!(await onModelButton(this.deps, contextOf(message), query.data ?? '', query.id))) await api.answerCallback(query.id)
+      const panel = contextOf(message)
+      const data = query.data ?? ''
+      const handled = (await onModelButton(this.deps, panel, data, query.id)) || (await onSkillButton(this.deps, panel, data, query.id, message.text))
+      if (!handled) await api.answerCallback(query.id)
     } catch (err) {
       console.error(`Lỗi xử lý nút bấm: ${errorText(err)}`)
     }

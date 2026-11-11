@@ -10,7 +10,7 @@ import { type BotApi, TelegramApiError } from './telegram-api'
 const FILE_LINE = /^[ \t]*(?:(?:[-*•]|\d+[.)])[ \t]+)?📎️?[ \t]*(.*?)[ \t]*$/u
 const FENCE = /^[ \t]*(```|~~~)/
 /** Never uploaded, whoever names them: secrets (tokens, keys) a prompt injection could ask for. */
-const SECRET_NAME = /^(\.env(\..*)?|id_(rsa|dsa|ecdsa|ed25519)|.*\.(pem|key|p12|pfx))$/i
+export const SECRET_NAME = /^(\.env(\..*)?|id_(rsa|dsa|ecdsa|ed25519)|.*\.(pem|key|p12|pfx))$/i
 const SECRET_DIR = /[\\/](\.ssh|\.gnupg|\.aws|\.claude[\\/]channels)[\\/]/i
 /** Sent as photos (shown inline); anything else goes as a file. */
 const PHOTO_TYPES = new Set(['.png', '.jpg', '.jpeg', '.webp'])

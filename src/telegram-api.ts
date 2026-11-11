@@ -2,7 +2,7 @@ import { basename } from 'node:path'
 import { type FileOptions, type InlineButton, keyboard, type SendOptions, threadParams } from './telegram-send-options'
 import type { TgMessage, TgUpdate, TgUser } from './telegram-types'
 
-export type { FileOptions, InlineButton, SendOptions } from './telegram-send-options'
+export { buttonRows, type FileOptions, type InlineButton, type SendOptions } from './telegram-send-options'
 
 const API_ROOT = 'https://api.telegram.org'
 /** Seconds a getUpdates call waits for news (long polling). */

@@ -7,6 +7,7 @@ import type { BotCommand } from './telegram-api'
 import type { TopicClaudeState } from './topic-conversations'
 import { modelCommand, modelLine, type Reply } from './topic-model-choice'
 import type { RunDeps, TopicContext } from './topic-run'
+import { skillsCommand } from './topic-skill-choice'
 
 /** Shown in Telegram's "/" menu of the group. */
 export const BOT_COMMANDS: BotCommand[] = [
@@ -14,6 +15,7 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: 'status', description: 'Dự án, phiên, việc đang chạy' },
   { command: 'new', description: 'Cuộc trò chuyện mới (quên ngữ cảnh cũ)' },
   { command: 'model', description: 'Chọn model cho topic này' },
+  { command: 'skills', description: 'Cài skill (Ponytail, ClaudeKit) cho dự án' },
   { command: 'stop', description: 'Dừng việc, tắt Claude của topic' },
   { command: 'topics', description: 'Các topic đã gắn trong group' },
   { command: 'unbind', description: 'Bỏ gắn topic' },
@@ -28,6 +30,7 @@ const HELP = [
   '/status — dự án, phiên, việc đang chạy',
   '/new — cuộc trò chuyện mới (quên ngữ cảnh cũ)',
   '/model — chọn model cho topic này (mọi model Claude Code có, kể cả bản cũ)',
+  '/skills — bấm chọn skill (Ponytail, ClaudeKit) để cài vào dự án, bấm lại để gỡ',
   '/stop — dừng việc đang chạy, tắt Claude của topic (tin sau mở lại, vẫn nhớ ngữ cảnh)',
   '/topics — các topic đã gắn trong group',
   '/unbind — bỏ gắn',
@@ -97,6 +100,8 @@ async function commandAnswer(
     }
     case 'model':
       return modelCommand(deps, ctx, command.args)
+    case 'skills':
+      return skillsCommand(deps, ctx)
     case 'status':
       return statusText(deps, ctx)
     case 'topics':

@@ -57,6 +57,7 @@ Các tình huống hay gặp:
 | Gửi ảnh lỗi / thiết kế | Gửi ảnh (hoặc album, tệp) kèm chú thích "giao diện bị vỡ như ảnh này, sửa giúp" |
 | Nhận ảnh / tệp | "chụp màn hình trang chủ rồi gửi tôi", "gửi file báo cáo vừa tạo" |
 | Đổi model | `/model` rồi bấm nút, hoặc `/model opus` |
+| Cài skill cho dự án | `/skills`, chọn nguồn, bấm skill (bấm lại để gỡ) |
 | Bắt đầu chủ đề mới | `/new` (phiên quá dài làm mỗi tin chậm và tốn hơn; bot sẽ nhắc) |
 | Dừng ngay | `/stop` |
 | Xem đang làm gì | `/status` |
@@ -70,6 +71,7 @@ Các tình huống hay gặp:
 | `/status` | Dự án, phiên, độ lớn ngữ cảnh, Claude đang làm / chạy sẵn / chưa mở |
 | `/new` | Tin sau bắt đầu cuộc trò chuyện mới |
 | `/model` | Chọn model cho topic bằng nút bấm: mọi model Claude Code có cho tài khoản (bản mới nhất và các bản cũ hơn, lấy từ Claude Code lúc bot khởi động), hoặc `/model <tên>`. Đổi ngay trong Claude đang chạy, vẫn nhớ ngữ cảnh; đang làm việc thì áp dụng khi xong |
+| `/skills` | Chọn skill bằng nút bấm: chọn nguồn (Ponytail, ClaudeKit), rồi bấm skill để chép vào `.claude/skills` của dự án (✓ = đã có; bấm lại để gỡ). Skill lấy từ máy: plugin ponytail đã cài, và các skill ClaudeKit trong `~/.claude/skills`. Mỗi bản chép có tệp `.router-skill.json` ghi lại các tệp đã chép; chỉ gỡ khi mọi tệp còn nguyên, nên skill riêng của dự án hoặc đã sửa không bao giờ bị ghi đè hay gỡ. Thư mục dùng chung `_shared`, `common` của ClaudeKit được chép kèm vì vài skill cần. Không chép tệp bí mật (`.env`, khoá), link và cache |
 | `/stop` | Dừng việc đang chạy và tắt tiến trình Claude của topic (cả các tiến trình nó mở). Lúc rảnh: chỉ tắt tiến trình để trả RAM |
 | `/topics` | Các topic đã gắn trong group |
 | `/unbind` | Bỏ gắn topic |

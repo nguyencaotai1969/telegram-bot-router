@@ -34,7 +34,7 @@ export function routerHarness(extra: Partial<RouterConfig> = {}) {
     const idle = () => waitFor(() => !scheduler.status(key).busy)
     /** Claude has started this topic's session (its process is up and working). */
     const started = () => waitFor(() => store.get(key)?.sessionId)
-    /** Presses the inline button with `data` on the bot message `messageId` of this topic. */
+    /** Presses the inline button with `data` on the bot message `messageId` of this topic, as it reads now. */
     const press = (messageId: number, data: string, fromId = OWNER_ID) =>
       router.handleButton({
         id: `q${nextQueryId++}`,
@@ -46,6 +46,7 @@ export function routerHarness(extra: Partial<RouterConfig> = {}) {
           chat: { id: GROUP_ID, type: 'supergroup', is_forum: true },
           message_thread_id: threadId,
           is_topic_message: true,
+          text: api.log.filter(item => (item.kind === 'send' || item.kind === 'edit') && item.messageId === messageId).at(-1)?.text,
         },
       })
     return { threadId, key, folder, send, answer, idle, started, press }

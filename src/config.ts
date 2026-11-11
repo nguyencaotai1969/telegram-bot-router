@@ -1,3 +1,4 @@
+import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { claudeBinaryLocator } from './claude-binary-path'
 
@@ -31,6 +32,8 @@ export interface RouterConfig {
   /** Warn once a session has answered this many messages (0 = never). */
   sessionWarnMessages: number
   dataDir: string
+  /** Claude Code's own folder (~/.claude, or CLAUDE_CONFIG_DIR): where /skills finds the skills it offers. */
+  claudeDir: string
 }
 
 type Env = Record<string, string | undefined>
@@ -98,5 +101,6 @@ export function loadConfig(env: Env = process.env): RouterConfig {
     contextWarnTokens: boundedInt(env, 'CONTEXT_WARN_TOKENS', 200_000, 0, 10_000_000),
     sessionWarnMessages: boundedInt(env, 'SESSION_WARN_MESSAGES', 20, 0, 10_000),
     dataDir: resolve(env.ROUTER_DATA_DIR?.trim() || join(import.meta.dir, '..', 'data')),
+    claudeDir: resolve(env.CLAUDE_CONFIG_DIR?.trim() || join(homedir(), '.claude')),
   }
 }
