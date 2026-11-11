@@ -114,6 +114,7 @@ export function testConfig(dataDir: string, extra: Partial<RouterConfig> = {}): 
     contextWarnTokens: 200_000,
     sessionWarnMessages: 20,
     dataDir,
+    claudeDir: join(dataDir, 'claude-home'),
     ...extra,
   }
 }

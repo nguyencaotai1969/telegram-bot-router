@@ -18,6 +18,13 @@ export interface InlineButton {
   data: string
 }
 
+/** Buttons laid out `perRow` to a row. */
+export function buttonRows(buttons: InlineButton[], perRow: number): InlineButton[][] {
+  const rows: InlineButton[][] = []
+  for (let i = 0; i < buttons.length; i += perRow) rows.push(buttons.slice(i, i + perRow))
+  return rows
+}
+
 export function threadParams(opts: SendOptions): Record<string, unknown> {
   return {
     ...(opts.threadId ? { message_thread_id: opts.threadId } : {}),

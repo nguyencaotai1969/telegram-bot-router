@@ -1,6 +1,6 @@
 import { type ClaudeModel, claudeModels, knownModels } from './claude-model-list'
 import { isModelName } from './config'
-import type { InlineButton } from './telegram-api'
+import { buttonRows, type InlineButton } from './telegram-api'
 import { errorText, type RunDeps, type TopicContext } from './topic-run'
 
 const DEFAULT = 'default'
@@ -107,7 +107,5 @@ function modelPanel(deps: RunDeps, key: string, offer: Offer, headline?: string)
   const chosen = deps.store.get(key)?.model ?? DEFAULT
   const label = (m: ClaudeModel) => (m.value === DEFAULT ? `Mặc định · ${defaultName(deps, offer.models)}` : m.displayName)
   const buttons = offer.models.map(m => ({ text: `${m.value === chosen ? '✓ ' : ''}${label(m)}`, data: `${BUTTON_PREFIX}${m.value}` }))
-  const rows: InlineButton[][] = []
-  for (let i = 0; i < buttons.length; i += PER_ROW) rows.push(buttons.slice(i, i + PER_ROW))
-  return { text: [...(headline ? [headline] : []), describeModel(deps, key, offer.models)].join('\n'), buttons: rows }
+  return { text: [...(headline ? [headline] : []), describeModel(deps, key, offer.models)].join('\n'), buttons: buttonRows(buttons, PER_ROW) }
 }
