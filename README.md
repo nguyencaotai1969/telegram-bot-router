@@ -71,6 +71,29 @@ Bot:   Fixed 2 tests in tests/api.test.ts …
 | Stop now | `/stop` |
 | See what is going on | `/status` |
 | Work on several projects | One topic per project; up to `MAX_PARALLEL_RUNS` run at once |
+| Manage or move servers (no project) | Bind an empty folder, type `/server` and tap a button, see the example below |
+
+### Example: a `server` topic to move server A to server B
+
+Every step happens in Telegram:
+
+1. Create a `server` topic and bind any empty folder: `/bind D:\servers`.
+2. Type `/server` and tap **⚙️ Server A**. The bot asks one thing at a time, you answer each with a message:
+   ```
+   Bot: Step 1/4: send the host (IP or domain)   You: 1.2.3.4
+   Bot: Step 2/4: send the SSH port (usually 22) You: 22
+   Bot: Step 3/4: send the login name            You: root
+   Bot: Step 4/4: send the password              You: ********
+   Bot: ✅ Saved server A: root@1.2.3.4:22
+   ```
+   Do the same with **⚙️ Server B**. The answers never go to Claude; any command cancels. The bot speaks Vietnamese. For speed, one line works too: `/server a root@1.2.3.4:22 password`.
+
+   The bot deletes the message holding the password right away (it must be an admin allowed to delete messages; if it cannot, it asks you to), then saves the account to `.env.servers` in the folder. The bot never sends that file to Telegram. The first time, it also copies the two files of [`templates/server-topic`](templates/server-topic) (written in Vietnamese) into the folder, never overwriting one that is there:
+   - `ssh-to.sh`: Claude runs `./ssh-to.sh a 'command'` to reach a server. The password reaches ssh through `SSH_ASKPASS`, never the command line (which shows in the progress message on Telegram).
+   - `CLAUDE.md`: how to connect, the rules (A is read-only; ask before anything hard to undo on B; keep `nhat-ky.md`), the migration checklist. Edit it if your job differs.
+3. Type `/server` to check (passwords are masked), then write: "inventory server A and plan the move to B".
+
+Needs OpenSSH 8.4 or newer (Git for Windows ships one). Host keys are accepted on first connection.
 
 ### How Claude sends files
 
@@ -87,6 +110,7 @@ Photos and files you send are saved in `data/inbox/` (deleted after 7 days) and 
 | `/new` | Next message starts a fresh conversation |
 | `/model` | Pick the topic's model with buttons, or `/model <name>`. Applies to the running Claude without losing context |
 | `/skills` | Pick skills with buttons: a source (Ponytail, ClaudeKit), then a skill to copy into the project's `.claude/skills` (✓ = already there; tap again to remove). Skills come from this machine: the installed ponytail plugin, and the ClaudeKit skills in `~/.claude/skills`. Each copy gets a `.router-skill.json` listing its files; only a copy whose files are all unchanged is removed, so a skill the project wrote or edited is never overwritten or removed. ClaudeKit's shared `_shared` and `common` folders come along, since some skills import them. Secrets (`.env`, keys), links and caches are not copied |
+| `/server` | Show the saved servers with **⚙️ Server A** / **⚙️ Server B** buttons: tap one and the bot asks step by step (host, port, login, password). Or one line: `/server a\|b user@host[:port] password`. The account goes to the folder's `.env.servers` and copy the template `ssh-to.sh` and `CLAUDE.md` if missing; the message holding the password is deleted at once. Refused in a folder inside a git repo (the passwords could be committed) |
 | `/stop` | Stop the current task and close the topic's Claude process (and everything it started) |
 | `/topics` | Topics bound in this group |
 | `/unbind` | Unbind the topic |

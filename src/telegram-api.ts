@@ -80,6 +80,11 @@ export class TelegramApi {
     return this.deliver(chatId, () => this.call('editMessageText', params))
   }
 
+  /** In a group the bot must be an admin allowed to delete messages to delete someone else's. */
+  deleteMessage(chatId: number, messageId: number): Promise<unknown> {
+    return this.deliver(chatId, () => this.call('deleteMessage', { chat_id: chatId, message_id: messageId }))
+  }
+
   /** Stops the spinner on a pressed button; `text` shows as a short toast. */
   answerCallback(queryId: string, text?: string): Promise<unknown> {
     return this.call('answerCallbackQuery', { callback_query_id: queryId, ...(text ? { text } : {}) })
@@ -180,4 +185,7 @@ export class TelegramApi {
 }
 
 /** What the router needs from Telegram (tests pass a fake). */
-export type BotApi = Pick<TelegramApi, 'sendText' | 'editText' | 'sendDocument' | 'sendFile' | 'downloadFile' | 'answerCallback'>
+export type BotApi = Pick<
+  TelegramApi,
+  'sendText' | 'editText' | 'deleteMessage' | 'sendDocument' | 'sendFile' | 'downloadFile' | 'answerCallback'
+>

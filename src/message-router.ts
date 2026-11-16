@@ -3,6 +3,7 @@ import { parseCommand } from './command-parse'
 import { hasAttachment } from './telegram-attachments'
 import type { TgCallbackQuery, TgMessage } from './telegram-types'
 import { onModelButton } from './topic-model-choice'
+import { answerServerSetup, awaitsServerSetup, cancelServerSetup, onServerButton } from './topic-server-setup-steps'
 import { onSkillButton } from './topic-skill-choice'
 import { topicKey } from './topic-store'
 import { errorText, type RunDeps, type TopicContext } from './topic-run'
@@ -44,12 +45,15 @@ export class MessageRouter {
       }
       if (message.date === 0) {
         // Too old for Telegram to say which topic it is in: acting on it would hit the General topic.
-        await api.answerCallback(query.id, '⌛ Bảng chọn này đã cũ: gõ lại lệnh (/model, /skills) để mở bảng mới.')
+        await api.answerCallback(query.id, '⌛ Bảng chọn này đã cũ: gõ lại lệnh (/model, /skills, /server) để mở bảng mới.')
         return
       }
       const panel = contextOf(message)
       const data = query.data ?? ''
-      const handled = (await onModelButton(this.deps, panel, data, query.id)) || (await onSkillButton(this.deps, panel, data, query.id, message.text))
+      const handled =
+        (await onModelButton(this.deps, panel, data, query.id)) ||
+        (await onSkillButton(this.deps, panel, data, query.id, message.text)) ||
+        (await onServerButton(this.deps, panel, data, query.id, query.from.id))
       if (!handled) await api.answerCallback(query.id)
     } catch (err) {
       console.error(`Lỗi xử lý nút bấm: ${errorText(err)}`)
@@ -69,30 +73,40 @@ export class MessageRouter {
       return
     }
     const ctx = contextOf(message)
-    if (Date.now() - message.date * 1000 > config.staleMessageMs) {
-      await this.reply(ctx, '⏭️ Bỏ qua tin gửi lúc bot đang tắt. Gửi lại nếu vẫn cần.')
-      return
-    }
     const text = textOf(message)
     const command = text.startsWith('/') ? parseCommand(text, this.deps.botUsername) : null
     if (command === 'other-bot') return
+    if (command) cancelServerSetup(ctx.key) // any command ends a /server setup in progress
+    // Turned away before /server runs (which deletes it itself): a password must still leave the chat.
+    const refuse = async (answer: string) => {
+      if (command?.name === 'server' && command.args) await this.deps.api.deleteMessage(ctx.chatId, ctx.messageId).catch(() => {})
+      await this.reply(ctx, answer)
+    }
+    if (Date.now() - message.date * 1000 > config.staleMessageMs) {
+      await refuse('⏭️ Bỏ qua tin gửi lúc bot đang tắt. Gửi lại nếu vẫn cần.')
+      return
+    }
     if (command && SETUP_COMMANDS.has(command.name)) {
       await runCommand(this.deps, ctx, command, from.id)
       return
     }
     if (message.chat.type === 'private') {
-      await this.reply(ctx, 'Bot chỉ nhận việc trong group có Topics. Gõ /help để xem cách dùng.')
+      await refuse('Bot chỉ nhận việc trong group có Topics. Gõ /help để xem cách dùng.')
       return
     }
     if (!config.allowedChatIds.has(message.chat.id)) {
       this.logReject(`group ${message.chat.id} (${message.chat.title ?? ''}) chưa có trong ALLOWED_CHAT_IDS`)
-      await this.reply(ctx, `⛔ Group này chưa được phép. Thêm ${message.chat.id} vào ALLOWED_CHAT_IDS trong .env rồi chạy lại bot.`)
+      await refuse(`⛔ Group này chưa được phép. Thêm ${message.chat.id} vào ALLOWED_CHAT_IDS trong .env rồi chạy lại bot.`)
       return
     }
     const topicName = message.reply_to_message?.forum_topic_created?.name
     if (topicName) store.setName(ctx.key, topicName)
     if (command) {
       await runCommand(this.deps, ctx, command, from.id, topicName)
+      return
+    }
+    if (awaitsServerSetup(ctx.key, from.id)) {
+      await answerServerSetup(this.deps, ctx, text)
       return
     }
     // Every part of an album must come from the same person, in the same topic.
