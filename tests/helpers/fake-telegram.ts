@@ -10,7 +10,7 @@ export const FAKE_CLAUDE = [process.execPath, join(import.meta.dir, '..', 'fixtu
 
 export interface Sent {
   /** 'answer': a reply to a button press (messageId 0, text = its toast). 'file': an upload from disk. */
-  kind: 'send' | 'edit' | 'document' | 'file' | 'answer'
+  kind: 'send' | 'edit' | 'delete' | 'document' | 'file' | 'answer'
   chatId: number
   messageId: number
   text: string
@@ -42,6 +42,15 @@ export class FakeBotApi implements BotApi {
 
   async editText(chatId: number, messageId: number, text: string, buttons?: InlineButton[][]): Promise<unknown> {
     this.log.push({ kind: 'edit', chatId, messageId, text, buttons: buttonData(buttons) })
+    return true
+  }
+
+  /** False: deleting fails, as for a bot that is not an admin of the group. */
+  canDelete = true
+
+  async deleteMessage(chatId: number, messageId: number): Promise<unknown> {
+    if (!this.canDelete) throw new Error('Bad Request: message can\'t be deleted')
+    this.log.push({ kind: 'delete', chatId, messageId, text: '' })
     return true
   }
 

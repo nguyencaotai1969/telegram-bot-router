@@ -62,6 +62,29 @@ Các tình huống hay gặp:
 | Dừng ngay | `/stop` |
 | Xem đang làm gì | `/status` |
 | Làm nhiều dự án | Mỗi dự án một topic; tối đa `MAX_PARALLEL_RUNS` topic chạy cùng lúc |
+| Quản lý / chuyển server (không có dự án) | Gắn một thư mục trống, gõ `/server` rồi bấm nút, xem ví dụ dưới |
+
+### Ví dụ: topic `server` để chuyển server A sang server B
+
+Mọi bước làm trên Telegram:
+
+1. Tạo topic `server`, gắn một thư mục trống bất kỳ: `/bind D:\servers`.
+2. Gõ `/server`, bấm **⚙️ Server A**. Bot hỏi lần lượt, mỗi câu bạn gửi một tin:
+   ```
+   Bot: Bước 1/4: gửi host (IP hoặc tên miền)   Bạn: 1.2.3.4
+   Bot: Bước 2/4: gửi port SSH (thường là 22)    Bạn: 22
+   Bot: Bước 3/4: gửi tên đăng nhập              Bạn: root
+   Bot: Bước 4/4: gửi mật khẩu                   Bạn: ********
+   Bot: ✅ Đã lưu server A: root@1.2.3.4:22
+   ```
+   Làm tương tự với **⚙️ Server B**. Các câu trả lời không được chuyển cho Claude; gõ lệnh bất kỳ giữa chừng là huỷ. Muốn nhanh thì gõ một dòng: `/server a root@1.2.3.4:22 mật-khẩu`.
+
+   Bot xoá ngay tin có mật khẩu (bot cần là admin có quyền "Xoá tin"; không xoá được thì bot nhắc bạn tự xoá), rồi ghi tài khoản vào `.env.servers` trong thư mục. Bot không bao giờ gửi tệp này lên Telegram. Lần đầu, bot chép thêm hai tệp mẫu trong [`templates/server-topic`](templates/server-topic) vào thư mục (không ghi đè tệp đã có):
+   - `ssh-to.sh`: Claude chạy `./ssh-to.sh a 'lệnh'` để vào server. Mật khẩu đưa cho ssh qua `SSH_ASKPASS`, không nằm trên dòng lệnh (dòng lệnh hiện trong tin tiến độ trên Telegram).
+   - `CLAUDE.md`: cách kết nối, quy tắc (A chỉ đọc; hỏi trước lệnh khó hoàn tác trên B; ghi `nhat-ky.md`), các việc cần chuyển. Sửa tệp này nếu việc của bạn khác.
+3. Gõ `/server` để xem lại (mật khẩu được che), rồi nhắn: "kiểm kê server A rồi lập kế hoạch chuyển sang B".
+
+Cần OpenSSH 8.4 trở lên (có sẵn trong Git for Windows). Lần đầu kết nối, host key được tự nhận.
 
 ## Lệnh
 
@@ -72,6 +95,7 @@ Các tình huống hay gặp:
 | `/new` | Tin sau bắt đầu cuộc trò chuyện mới |
 | `/model` | Chọn model cho topic bằng nút bấm: mọi model Claude Code có cho tài khoản (bản mới nhất và các bản cũ hơn, lấy từ Claude Code lúc bot khởi động), hoặc `/model <tên>`. Đổi ngay trong Claude đang chạy, vẫn nhớ ngữ cảnh; đang làm việc thì áp dụng khi xong |
 | `/skills` | Chọn skill bằng nút bấm: chọn nguồn (Ponytail, ClaudeKit), rồi bấm skill để chép vào `.claude/skills` của dự án (✓ = đã có; bấm lại để gỡ). Skill lấy từ máy: plugin ponytail đã cài, và các skill ClaudeKit trong `~/.claude/skills`. Mỗi bản chép có tệp `.router-skill.json` ghi lại các tệp đã chép; chỉ gỡ khi mọi tệp còn nguyên, nên skill riêng của dự án hoặc đã sửa không bao giờ bị ghi đè hay gỡ. Thư mục dùng chung `_shared`, `common` của ClaudeKit được chép kèm vì vài skill cần. Không chép tệp bí mật (`.env`, khoá), link và cache |
+| `/server` | Xem server đã khai báo, kèm nút **⚙️ Server A** / **⚙️ Server B**: bấm thì bot hỏi từng bước (host, port, tên đăng nhập, mật khẩu). Hoặc một dòng: `/server a\|b user@host[:port] mật-khẩu`. Tài khoản được ghi vào `.env.servers` của thư mục, chép `ssh-to.sh` và `CLAUDE.md` mẫu nếu chưa có; tin có mật khẩu bị xoá ngay. Không nhận thư mục nằm trong repo git (mật khẩu có thể bị commit) |
 | `/stop` | Dừng việc đang chạy và tắt tiến trình Claude của topic (cả các tiến trình nó mở). Lúc rảnh: chỉ tắt tiến trình để trả RAM |
 | `/topics` | Các topic đã gắn trong group |
 | `/unbind` | Bỏ gắn topic |
