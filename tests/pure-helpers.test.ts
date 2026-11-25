@@ -107,7 +107,7 @@ describe('claude command line', () => {
 
 describe('command menus', () => {
   test('the private-chat menu offers exactly the commands that answer in a private chat', () => {
-    expect(PRIVATE_COMMANDS.map(c => c.command).sort()).toEqual(['help', 'id'])
+    expect(PRIVATE_COMMANDS.map(c => c.command).sort()).toEqual(['guide', 'help', 'id'])
     expect(PRIVATE_COMMANDS.every(c => SETUP_COMMANDS.has(c.command))).toBe(true)
     expect(BOT_COMMANDS.map(c => c.command)).toContain('model')
   })

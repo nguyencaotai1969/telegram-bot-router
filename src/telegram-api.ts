@@ -59,9 +59,14 @@ export class TelegramApi {
     return this.call<TgUpdate[]>('getUpdates', params, (POLL_SECONDS + 15) * 1000)
   }
 
-  /** The "/" menu Telegram suggests, for every group or every private chat with the bot. */
-  setMyCommands(commands: BotCommand[], scope: 'all_group_chats' | 'all_private_chats'): Promise<boolean> {
-    return this.call<boolean>('setMyCommands', { commands, scope: { type: scope } })
+  /**
+   * The "/" menu Telegram suggests: for every group, every private chat with the bot, or one chat (`{ chatId }`).
+   * A chat's own list outranks the general one, and Telegram pushes it to that chat's members, so an app that kept
+   * an older general list picks up the new commands.
+   */
+  setMyCommands(commands: BotCommand[], scope: 'all_group_chats' | 'all_private_chats' | { chatId: number }): Promise<boolean> {
+    const type = typeof scope === 'string' ? { type: scope } : { type: 'chat', chat_id: scope.chatId }
+    return this.call<boolean>('setMyCommands', { commands, scope: type })
   }
 
   sendText(chatId: number, text: string, opts: SendOptions = {}): Promise<TgMessage> {

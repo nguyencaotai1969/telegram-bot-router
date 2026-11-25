@@ -40,7 +40,11 @@ export class FakeBotApi implements BotApi {
     return { message_id: messageId, date: 0, chat: { id: chatId, type: 'supergroup' } }
   }
 
+  /** Set: editing a message fails with this, as Telegram does for an identical text or a vanished message. */
+  editError: Error | undefined
+
   async editText(chatId: number, messageId: number, text: string, buttons?: InlineButton[][]): Promise<unknown> {
+    if (this.editError) throw this.editError
     this.log.push({ kind: 'edit', chatId, messageId, text, buttons: buttonData(buttons) })
     return true
   }

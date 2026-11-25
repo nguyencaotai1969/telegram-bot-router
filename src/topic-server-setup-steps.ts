@@ -1,3 +1,4 @@
+import { cancelApiSetup } from './topic-api-setup-steps'
 import type { RunDeps, TopicContext } from './topic-run'
 import { deleteSecret, isHost, isUser, NOT_DELETED, parsePort, saveServer, type ServerId, UNBOUND } from './topic-server-config'
 
@@ -53,6 +54,7 @@ export async function onServerButton(
   const id = data.slice(PREFIX.length)
   if (id !== 'a' && id !== 'b') return refuse('⛔ Nút không hợp lệ.')
   if (!deps.store.get(panel.key)) return refuse(UNBOUND)
+  cancelApiSetup(panel.key) // one setup at a time per topic
   setups.set(panel.key, { id, userId: fromId, step: 'host', host: '', port: 22, user: '' })
   const text = `🖥️ Khai báo server ${id.toUpperCase()}. ${ASK.host}\n(Gõ lệnh bất kỳ, ví dụ /server, để huỷ.)`
   await Promise.all([

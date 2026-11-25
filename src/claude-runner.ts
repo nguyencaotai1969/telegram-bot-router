@@ -23,6 +23,8 @@ export interface LiveSessionRequest {
   /** Continue this Claude session (`--resume`). */
   sessionId?: string
   model?: string
+  /** A settings file for this process only (`--settings`): it outranks the user's own ~/.claude/settings.json. */
+  settingsFile?: string
   /** Set on top of the cleaned environment. */
   extraEnv?: Record<string, string>
   onEvent(event: ClaudeEvent): void
@@ -37,10 +39,11 @@ export interface LiveSessionEnd {
   sawInit: boolean
 }
 
-export function claudeArgs(req: Pick<LiveSessionRequest, 'sessionId' | 'model'>): string[] {
+export function claudeArgs(req: Pick<LiveSessionRequest, 'sessionId' | 'model' | 'settingsFile'>): string[] {
   const args = ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose', '--replay-user-messages']
   args.push('--dangerously-skip-permissions', '--append-system-prompt', TELEGRAM_NOTE)
   if (req.model) args.push('--model', req.model)
+  if (req.settingsFile) args.push('--settings', req.settingsFile)
   if (req.sessionId !== undefined) {
     if (!isSessionId(req.sessionId)) throw new Error('session id không hợp lệ')
     args.push('--resume', req.sessionId)

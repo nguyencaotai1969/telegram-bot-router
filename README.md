@@ -21,6 +21,7 @@
 - ⏳ **Live progress**: one message is edited to show Claude's latest steps.
 - 🧠 **Session-size warnings** (tokens and message count), with a one-tap `/new`.
 - 🎛️ **Per-topic model** with `/model` buttons.
+- 🔌 **Per-topic API server** (IP/domain, port, token) with connection test and `/enable-api` `/disable-api`: `/api`.
 - 🧩 **Per-project skills** with `/skills` buttons: pick Ponytail or ClaudeKit skills to copy into the project.
 - 🚦 **Parallel limit** across topics, run timeout, stale-message skip, single-instance lock.
 - 🔒 **Locked to your user ID and your group**; secret files (`.env`, SSH keys, `.pem`) are never uploaded.
@@ -109,13 +110,16 @@ Photos and files you send are saved in `data/inbox/` (deleted after 7 days) and 
 | `/status` | Project, session, context size, whether Claude is working / warm / closed |
 | `/new` | Next message starts a fresh conversation |
 | `/model` | Pick the topic's model with buttons, or `/model <name>`. Applies to the running Claude without losing context |
+| `/api` | Set up and switch the topic's own API server (instead of the machine's Claude login), all from Telegram: tap **✏️ Điền cấu hình** and answer host, port, token (or one line: `/api http://192.168.1.10:23334 TOKEN`). Saving turns it on and **tests the connection** (`GET /v1/models`: connected / token refused / wrong port / timeout / …). Buttons: **🟢 Bật API / 🔴 Tắt API**, **🧪 Test kết nối**, **✏️ Sửa**, **🗑️ Xoá**; words: `/api test`, `/api on|off|clear`. While on, Claude gets `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` from a per-topic `--settings` file in `data/topic-api/` (it outranks `~/.claude/settings.json`; nothing is written into the project). Changing it restarts that topic's Claude (same session, when Claude is idle). The message holding the token is deleted at once; `/status` shows only its last 4 characters. A redirect from the API server is never followed, so the token cannot travel on to another host |
+| `/enable_api`, `/disable_api` | Turn the saved API on (and test it) or off. `/enable-api` and `/disable-api` work too, but Telegram only makes the underscore forms tappable |
 | `/skills` | Pick skills with buttons: a source (Ponytail, ClaudeKit), then a skill to copy into the project's `.claude/skills` (✓ = already there; tap again to remove). Skills come from this machine: the installed ponytail plugin, and the ClaudeKit skills in `~/.claude/skills`. Each copy gets a `.router-skill.json` listing its files; only a copy whose files are all unchanged is removed, so a skill the project wrote or edited is never overwritten or removed. ClaudeKit's shared `_shared` and `common` folders come along, since some skills import them. Secrets (`.env`, keys), links and caches are not copied |
 | `/server` | Show the saved servers with **⚙️ Server A** / **⚙️ Server B** buttons: tap one and the bot asks step by step (host, port, login, password). Or one line: `/server a\|b user@host[:port] password`. The account goes to the folder's `.env.servers` and copy the template `ssh-to.sh` and `CLAUDE.md` if missing; the message holding the password is deleted at once. Refused in a folder inside a git repo (the passwords could be committed) |
 | `/stop` | Stop the current task and close the topic's Claude process (and everything it started) |
 | `/topics` | Topics bound in this group |
 | `/unbind` | Unbind the topic |
 | `/id` | Chat / topic / user IDs |
-| `/help` | Help |
+| `/help` | Short list of commands |
+| `/guide` | The full step-by-step guide for newcomers (also answers in a private chat with the bot) |
 
 ## Configuration (`.env`)
 
