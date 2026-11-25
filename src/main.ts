@@ -36,11 +36,16 @@ async function main(): Promise<void> {
 
   const me = await api.getMe()
   if (!me.username) throw new Error('Bot không có username')
-  for (const [commands, scope] of [
-    [BOT_COMMANDS, 'all_group_chats'],
-    [PRIVATE_COMMANDS, 'all_private_chats'],
-  ] as const) {
-    await api.setMyCommands(commands, scope).catch(err => console.warn(`Không đặt được menu lệnh (${scope}): ${errorText(err)}`))
+  const menus = [
+    { commands: BOT_COMMANDS, scope: 'all_group_chats' as const },
+    { commands: PRIVATE_COMMANDS, scope: 'all_private_chats' as const },
+    // Each allowed group also gets its own list: Telegram pushes it to the group's members, so an app that kept an older menu refreshes it.
+    ...[...config.allowedChatIds].filter(id => id < 0).map(chatId => ({ commands: BOT_COMMANDS, scope: { chatId } })),
+  ]
+  for (const { commands, scope } of menus) {
+    await api
+      .setMyCommands(commands, scope)
+      .catch(err => console.warn(`Không đặt được menu lệnh (${typeof scope === 'string' ? scope : scope.chatId}): ${errorText(err)}`))
   }
 
   knownModels(config) // starts asking Claude Code now, so the first /model panel lists every model

@@ -1,9 +1,11 @@
 import { statSync } from 'node:fs'
 import { isAbsolute, resolve } from 'node:path'
+import { GUIDE } from './bot-guide'
 import type { ParsedCommand } from './command-parse'
 import { splitForTelegram } from './reply-text-chunks'
 import { describeUsage, isOverLimit } from './session-size-warning'
 import type { BotCommand } from './telegram-api'
+import { apiCommand, apiLine, enableApiCommand } from './topic-api-choice'
 import type { TopicClaudeState } from './topic-conversations'
 import { modelCommand, modelLine, type Reply } from './topic-model-choice'
 import type { RunDeps, TopicContext } from './topic-run'
@@ -16,13 +18,17 @@ export const BOT_COMMANDS: BotCommand[] = [
   { command: 'status', description: 'Dự án, phiên, việc đang chạy' },
   { command: 'new', description: 'Cuộc trò chuyện mới (quên ngữ cảnh cũ)' },
   { command: 'model', description: 'Chọn model cho topic này' },
+  { command: 'api', description: 'Điền / test / bật tắt API riêng (IP, port, token)' },
+  { command: 'enable_api', description: 'Bật API riêng của topic (và thử kết nối)' },
+  { command: 'disable_api', description: 'Tắt API riêng, Claude dùng đăng nhập của máy' },
   { command: 'skills', description: 'Cài skill (Ponytail, ClaudeKit) cho dự án' },
   { command: 'server', description: 'Khai báo tài khoản SSH server A / B' },
   { command: 'stop', description: 'Dừng việc, tắt Claude của topic' },
   { command: 'topics', description: 'Các topic đã gắn trong group' },
   { command: 'unbind', description: 'Bỏ gắn topic' },
   { command: 'id', description: 'Xem ID chat / topic / người dùng' },
-  { command: 'help', description: 'Hướng dẫn' },
+  { command: 'help', description: 'Tóm tắt các lệnh' },
+  { command: 'guide', description: 'Hướng dẫn đầy đủ cho người mới' },
 ]
 
 const HELP = [
@@ -32,12 +38,15 @@ const HELP = [
   '/status — dự án, phiên, việc đang chạy',
   '/new — cuộc trò chuyện mới (quên ngữ cảnh cũ)',
   '/model — chọn model cho topic này (mọi model Claude Code có, kể cả bản cũ)',
+  '/api — điền API riêng của dự án (IP/domain, port, token) ngay trên Telegram, có nút test kết nối, bật / tắt',
+  '/enable_api — bật API đã lưu cho topic (kèm thử kết nối), /disable_api — tắt (bấm thẳng vào lệnh; gõ /enable-api cũng được)',
   '/skills — bấm chọn skill (Ponytail, ClaudeKit) để cài vào dự án, bấm lại để gỡ',
   '/server — xem và khai báo tài khoản SSH server A / B (bấm nút, bot hỏi từng bước) để Claude vào server',
   '/stop — dừng việc đang chạy, tắt Claude của topic (tin sau mở lại, vẫn nhớ ngữ cảnh)',
   '/topics — các topic đã gắn trong group',
   '/unbind — bỏ gắn',
   '/id — xem ID chat / topic / người dùng',
+  '/guide — hướng dẫn đầy đủ từng bước cho người mới',
   '',
   'Gửi ảnh hoặc tệp (kèm lời nhắn) để Claude xem.',
   '⚠️ Claude chạy với toàn quyền trên máy: không hỏi trước khi chạy lệnh hay sửa tệp.',
@@ -50,7 +59,7 @@ const CLAUDE_STATE: Record<TopicClaudeState, string> = {
 }
 
 /** Commands any allowed user may use outside an allowed group (setup). */
-export const SETUP_COMMANDS = new Set(['id', 'help', 'start'])
+export const SETUP_COMMANDS = new Set(['id', 'help', 'guide', 'start'])
 
 /** The "/" menu of a private chat with the bot: only what answers there. */
 export const PRIVATE_COMMANDS: BotCommand[] = BOT_COMMANDS.filter(c => SETUP_COMMANDS.has(c.command))
@@ -103,6 +112,12 @@ async function commandAnswer(
     }
     case 'model':
       return modelCommand(deps, ctx, command.args)
+    case 'api':
+      return apiCommand(deps, ctx, command.args)
+    case 'enable_api':
+      return enableApiCommand(deps, ctx, true)
+    case 'disable_api':
+      return enableApiCommand(deps, ctx, false)
     case 'skills':
       return skillsCommand(deps, ctx)
     case 'server':
@@ -116,6 +131,8 @@ async function commandAnswer(
     case 'help':
     case 'start':
       return HELP
+    case 'guide':
+      return GUIDE
     default:
       return `Không biết lệnh /${command.name}. Gõ /help.`
   }
@@ -153,6 +170,7 @@ function statusText(deps: RunDeps, ctx: TopicContext): string {
     `🧵 Phiên: ${binding?.sessionId ? `${binding.sessionId.slice(0, 8)}…` : 'mới'}`,
     ...(usage ? [`🧠 Ngữ cảnh: ${describeUsage(usage)}${isOverLimit(usage, deps.config) ? ' ⚠️ nên /new' : ''}`] : []),
     modelLine(deps, ctx.key),
+    apiLine(deps, ctx.key),
     `🔥 Claude: ${CLAUDE_STATE[deps.conversations.busy(deps.scheduler, ctx.key) ? 'working' : deps.conversations.state(ctx.key)]}`,
     `⚙️ Cả bot: ${deps.scheduler.activeCount}/${deps.config.maxParallelRuns} việc đang chạy`,
   ]

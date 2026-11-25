@@ -9,7 +9,7 @@
 //     (BACKGROUND_WAIT: that turn waits ≤5 s for a message to join it); it answers "bg-done|…"
 //   SUBAGENT: a background sub-agent's tool calls land just before the result line and after it
 //   `--resume deadbeef-…`: a session that no longer exists (fails at start, like claude)
-export {}
+import { readFileSync } from 'node:fs'
 
 const args = process.argv.slice(2)
 const resumeAt = args.indexOf('--resume')
@@ -17,6 +17,9 @@ const resumed = resumeAt >= 0 ? args[resumeAt + 1] : undefined
 const modelAt = args.indexOf('--model')
 /** `--model`, or what a `set_model` control request switched to since. */
 let model = modelAt >= 0 ? args[modelAt + 1] : undefined
+const settingsAt = args.indexOf('--settings')
+/** The ANTHROPIC_* the router handed over in its `--settings` file, as claude would read them. */
+const apiEnv: Record<string, string> = settingsAt >= 0 ? JSON.parse(readFileSync(args[settingsAt + 1] ?? '', 'utf8')).env : {}
 const sessionId = resumed ?? crypto.randomUUID()
 const emit = (value: unknown) => process.stdout.write(`${JSON.stringify(value)}\n`)
 
@@ -113,6 +116,8 @@ for (let prompt = await nextMessage(); prompt !== undefined; prompt = await next
     `nested:${process.env.CLAUDECODE ? 'yes' : 'no'}`,
     `perm:${args.includes('--dangerously-skip-permissions') ? 'skip' : 'ask'}`,
     `model:${model ?? '-'}`,
+    `api:${apiEnv.ANTHROPIC_BASE_URL ?? '-'}`,
+    `apitoken:${apiEnv.ANTHROPIC_AUTH_TOKEN ?? '-'}`,
     `plugin:${process.env.TELEGRAM_STATE_DIR ?? '-'}`,
   ]
   // LONG: sent as a file · MEDIUM: three Telegram messages, the last one ending with the facts

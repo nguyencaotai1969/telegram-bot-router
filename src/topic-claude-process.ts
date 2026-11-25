@@ -1,6 +1,7 @@
 import { ClaudeLiveSession, type LiveSessionEnd } from './claude-runner'
 import { type ClaudeEvent, startsTurn } from './claude-stream-events'
 import { pluginOffEnv } from './config'
+import { activeApi, apiSignature, writeApiSettings } from './topic-api-settings'
 import type { Conversation } from './topic-conversations'
 import { errorText, type RunDeps } from './topic-run'
 
@@ -24,6 +25,8 @@ export interface ClaudeProcess {
   readonly resumed: boolean
   /** The model it was started with (`--model`) or switched to since (undefined: Claude Code's default). */
   model: string | undefined
+  /** `apiSignature` of the API server it was started with: another one means a restart (it cannot change in place). */
+  apiSignature: string
   /** The model Claude reports it runs on (from its init line), e.g. claude-opus-5-5. */
   runningModel?: string
   owner: ProcessOwner
@@ -56,11 +59,12 @@ export async function claudeProcessFor(
     if (!proc) return startClaudeProcess(deps, conv, owner, binding.cwd, binding.sessionId)
     const wanted = topicModel(deps, conv.key)
     if (idle && proc.model !== wanted && proc.live.setModel(wanted)) proc.model = wanted
-    if (proc.live.alive && proc.cwd === binding.cwd && (!idle || proc.model === wanted)) {
+    const api = apiSignature(activeApi(binding))
+    if (proc.live.alive && proc.cwd === binding.cwd && (!idle || (proc.model === wanted && proc.apiSignature === api))) {
       proc.owner = owner
       return proc
     }
-    proc.live.kill() // another folder or model; a no-op for one already gone
+    proc.live.kill() // another folder, model or API server; a no-op for one already gone
     await proc.live.ended // its own end handler, registered first, runs before this
     if (conv.process === proc) conv.process = undefined
   }
@@ -105,10 +109,12 @@ export function startClaudeProcess(
 ): ClaudeProcess | string {
   let proc: ClaudeProcess
   const model = topicModel(deps, conv.key)
+  const api = activeApi(deps.store.get(conv.key))
   try {
     const live: ClaudeLiveSession = new ClaudeLiveSession({
       command: deps.config.claudeCommand,
       model,
+      settingsFile: api && writeApiSettings(deps.config.dataDir, conv.key, api),
       cwd,
       sessionId,
       extraEnv: pluginOffEnv(deps.config.dataDir),
@@ -121,7 +127,7 @@ export function startClaudeProcess(
         proc.owner.onEvent(event)
       },
     })
-    proc = { live, cwd, resumed: sessionId !== undefined, model, owner }
+    proc = { live, cwd, resumed: sessionId !== undefined, model, apiSignature: apiSignature(api), owner }
   } catch (err) {
     return `⚠️ Không chạy được Claude: ${errorText(err)}`
   }

@@ -24,6 +24,8 @@ export interface RouterConfig {
   /** Executable (+ leading args, tests only) that behaves like `claude`. */
   claudeCommand: readonly string[]
   claudeModel?: string
+  /** How long /api waits for the API server when testing the connection (default 8 s; tests set it shorter). */
+  apiTestTimeoutMs?: number
   maxParallelRuns: number
   runTimeoutMs: number
   staleMessageMs: number
@@ -70,6 +72,17 @@ export function pluginOffEnv(dataDir: string): Record<string, string> {
 /** A model alias (`opus`) or full name (`claude-opus-5-5`, `…[1m]`): safe to pass to `--model`. */
 export function isModelName(value: unknown): value is string {
   return typeof value === 'string' && /^[\w.\-[\]]{1,64}$/.test(value)
+}
+
+/** `http://host:port` or `https://host[:port]`: where a topic's Claude sends its requests instead of to Anthropic. */
+export function isApiBaseUrl(value: unknown): value is string {
+  const match = typeof value === 'string' ? /^https?:\/\/[A-Za-z0-9.][A-Za-z0-9.-]{0,252}(?::(\d{1,5}))?$/.exec(value) : null
+  return !!match && (match[1] === undefined || (Number(match[1]) >= 1 && Number(match[1]) <= 65535))
+}
+
+/** An API token: printable characters, no spaces or line breaks (it goes into a JSON file and an HTTP header). */
+export function isApiToken(value: unknown): value is string {
+  return typeof value === 'string' && /^[\x21-\x7e]{1,1024}$/.test(value)
 }
 
 export function loadConfig(env: Env = process.env): RouterConfig {

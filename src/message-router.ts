@@ -2,6 +2,7 @@ import { runCommand, SETUP_COMMANDS } from './bot-commands'
 import { parseCommand } from './command-parse'
 import { hasAttachment } from './telegram-attachments'
 import type { TgCallbackQuery, TgMessage } from './telegram-types'
+import { answerApiSetup, awaitsApiSetup, cancelApiSetup, onApiButton } from './topic-api-setup-steps'
 import { onModelButton } from './topic-model-choice'
 import { answerServerSetup, awaitsServerSetup, cancelServerSetup, onServerButton } from './topic-server-setup-steps'
 import { onSkillButton } from './topic-skill-choice'
@@ -45,7 +46,7 @@ export class MessageRouter {
       }
       if (message.date === 0) {
         // Too old for Telegram to say which topic it is in: acting on it would hit the General topic.
-        await api.answerCallback(query.id, '⌛ Bảng chọn này đã cũ: gõ lại lệnh (/model, /skills, /server) để mở bảng mới.')
+        await api.answerCallback(query.id, '⌛ Bảng chọn này đã cũ: gõ lại lệnh (/model, /skills, /server, /api) để mở bảng mới.')
         return
       }
       const panel = contextOf(message)
@@ -53,6 +54,7 @@ export class MessageRouter {
       const handled =
         (await onModelButton(this.deps, panel, data, query.id)) ||
         (await onSkillButton(this.deps, panel, data, query.id, message.text)) ||
+        (await onApiButton(this.deps, panel, data, query.id, query.from.id)) ||
         (await onServerButton(this.deps, panel, data, query.id, query.from.id))
       if (!handled) await api.answerCallback(query.id)
     } catch (err) {
@@ -76,10 +78,13 @@ export class MessageRouter {
     const text = textOf(message)
     const command = text.startsWith('/') ? parseCommand(text, this.deps.botUsername) : null
     if (command === 'other-bot') return
-    if (command) cancelServerSetup(ctx.key) // any command ends a /server setup in progress
+    if (command) {
+      cancelServerSetup(ctx.key) // any command ends a /server or /api setup in progress
+      cancelApiSetup(ctx.key)
+    }
     // Turned away before /server runs (which deletes it itself): a password must still leave the chat.
     const refuse = async (answer: string) => {
-      if (command?.name === 'server' && command.args) await this.deps.api.deleteMessage(ctx.chatId, ctx.messageId).catch(() => {})
+      if ((command?.name === 'server' || command?.name === 'api') && command.args) await this.deps.api.deleteMessage(ctx.chatId, ctx.messageId).catch(() => {})
       await this.reply(ctx, answer)
     }
     if (Date.now() - message.date * 1000 > config.staleMessageMs) {
@@ -103,6 +108,10 @@ export class MessageRouter {
     if (topicName) store.setName(ctx.key, topicName)
     if (command) {
       await runCommand(this.deps, ctx, command, from.id, topicName)
+      return
+    }
+    if (awaitsApiSetup(ctx.key, from.id)) {
+      await answerApiSetup(this.deps, ctx, text)
       return
     }
     if (awaitsServerSetup(ctx.key, from.id)) {

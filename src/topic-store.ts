@@ -1,7 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { isModelName } from './config'
+import { isApiBaseUrl, isApiToken, isModelName } from './config'
 import { isSessionId } from './session-id'
+
+/** An API server for the topic's Claude (ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN), used only while `enabled`. */
+export interface TopicApi {
+  enabled: boolean
+  baseUrl: string
+  token: string
+}
 
 export interface TopicBinding {
   /** Project folder Claude works in for this topic. */
@@ -12,6 +19,8 @@ export interface TopicBinding {
   sessionId?: string
   /** Model chosen for this topic (/model); absent = the router's default. Kept across /new and /bind. */
   model?: string
+  /** API server chosen for this topic (/api); absent = the user's own Claude login and settings. Kept across /new, dropped by /bind to another folder. */
+  api?: TopicApi
   /** How big that session has grown; goes with the session. */
   usage?: SessionUsage
   boundAt: number
@@ -67,26 +76,37 @@ export class TopicStore {
   get(key: string): TopicBinding | undefined {
     const binding = Object.hasOwn(this.data.topics, key) ? this.data.topics[key] : undefined
     if (!binding) return undefined
-    return { ...binding, ...(binding.usage ? { usage: { ...binding.usage } } : {}) }
+    return { ...binding, ...(binding.usage ? { usage: { ...binding.usage } } : {}), ...(binding.api ? { api: { ...binding.api } } : {}) }
   }
 
   bind(key: string, cwd: string, name?: string): void {
-    const model = this.get(key)?.model
-    this.data.topics[key] = { cwd, boundAt: Date.now(), ...(name ? { name } : {}), ...(model ? { model } : {}) }
+    const before = this.get(key)
+    const api = before?.cwd === cwd ? before.api : undefined // an API server belongs to its project
+    const model = before?.model
+    this.data.topics[key] = { cwd, boundAt: Date.now(), ...(name ? { name } : {}), ...(model ? { model } : {}), ...(api ? { api } : {}) }
     this.save()
   }
 
   /** Sets (or, with undefined, clears) the topic's model. False when the topic is not bound. */
   setModel(key: string, model: string | undefined): boolean {
+    return this.edit(key, binding => (model === undefined ? delete binding.model : (binding.model = model)))
+  }
+
+  /** Sets (or, with undefined, clears) the topic's API server. False when the topic is not bound. */
+  setApi(key: string, api: TopicApi | undefined): boolean {
+    return this.edit(key, binding => (api === undefined ? delete binding.api : (binding.api = { ...api })))
+  }
+
+  /** Applies `change` to the topic's binding and saves. Not saved, not applied: what the user is told stays true. */
+  private edit(key: string, change: (binding: TopicBinding) => unknown): boolean {
     const binding = Object.hasOwn(this.data.topics, key) ? this.data.topics[key] : undefined
     if (!binding) return false
-    const previous = binding.model
-    const apply = (value: string | undefined) => (value === undefined ? delete binding.model : (binding.model = value))
-    apply(model)
+    const before = structuredClone(binding)
+    change(binding)
     try {
       this.save()
     } catch (err) {
-      apply(previous) // not saved, not applied: what the user is told stays true
+      this.data.topics[key] = before
       throw err
     }
     return true
@@ -161,6 +181,7 @@ export class TopicStore {
           ...(typeof value.name === 'string' ? { name: value.name.slice(0, 128) } : {}),
           ...(isSessionId(value.sessionId) ? { sessionId: value.sessionId, ...loadUsage(value.usage) } : {}),
           ...(isModelName(value.model) ? { model: value.model } : {}),
+          ...loadApi(value.api),
         }
       }
       const lastUpdateId = Number.isSafeInteger(raw.lastUpdateId) ? (raw.lastUpdateId as number) : 0
@@ -185,6 +206,12 @@ export class TopicStore {
       writeFileSync(this.file, json)
     }
   }
+}
+
+function loadApi(raw: unknown): { api?: TopicApi } {
+  const value = (raw ?? {}) as Partial<TopicApi>
+  if (!isApiBaseUrl(value.baseUrl) || !isApiToken(value.token)) return {}
+  return { api: { enabled: value.enabled === true, baseUrl: value.baseUrl, token: value.token } }
 }
 
 function loadUsage(raw: unknown): { usage?: SessionUsage } {

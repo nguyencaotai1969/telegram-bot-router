@@ -94,14 +94,18 @@ Cần OpenSSH 8.4 trở lên (có sẵn trong Git for Windows). Lần đầu k�
 | `/status` | Dự án, phiên, độ lớn ngữ cảnh, Claude đang làm / chạy sẵn / chưa mở |
 | `/new` | Tin sau bắt đầu cuộc trò chuyện mới |
 | `/model` | Chọn model cho topic bằng nút bấm: mọi model Claude Code có cho tài khoản (bản mới nhất và các bản cũ hơn, lấy từ Claude Code lúc bot khởi động), hoặc `/model <tên>`. Đổi ngay trong Claude đang chạy, vẫn nhớ ngữ cảnh; đang làm việc thì áp dụng khi xong |
+| `/api` | Khai báo và bật tắt API riêng của topic (thay cho đăng nhập Claude của máy), làm hết trên Telegram: bấm **✏️ Điền cấu hình** rồi trả lời host, port, token (hoặc một dòng: `/api http://192.168.1.10:23334 TOKEN`). Lưu xong là tự bật và **thử kết nối** (`GET /v1/models`: kết nối được / token bị từ chối / sai port / quá thời gian…). Nút: **🟢 Bật API / 🔴 Tắt API**, **🧪 Test kết nối**, **✏️ Sửa**, **🗑️ Xoá**; gõ chữ: `/api test`, `/api on|off|clear`. Khi bật, Claude nhận `ANTHROPIC_BASE_URL` và `ANTHROPIC_AUTH_TOKEN` từ tệp `--settings` riêng của topic trong `data/topic-api/` (ưu tiên hơn `~/.claude/settings.json`; không ghi gì vào dự án). Đổi cấu hình thì Claude của topic khởi động lại (vẫn cùng phiên, khi Claude đang rảnh). Tin có token bị xoá ngay; `/status` chỉ hiện 4 ký tự cuối. Server API chuyển hướng thì bot không đi theo, nên token không bị gửi sang host khác |
+| `/enable_api`, `/disable_api` | Bật API đã lưu (kèm thử kết nối) hoặc tắt. Gõ `/enable-api`, `/disable-api` cũng được, nhưng Telegram chỉ cho bấm trực tiếp vào dạng gạch dưới |
 | `/skills` | Chọn skill bằng nút bấm: chọn nguồn (Ponytail, ClaudeKit), rồi bấm skill để chép vào `.claude/skills` của dự án (✓ = đã có; bấm lại để gỡ). Skill lấy từ máy: plugin ponytail đã cài, và các skill ClaudeKit trong `~/.claude/skills`. Mỗi bản chép có tệp `.router-skill.json` ghi lại các tệp đã chép; chỉ gỡ khi mọi tệp còn nguyên, nên skill riêng của dự án hoặc đã sửa không bao giờ bị ghi đè hay gỡ. Thư mục dùng chung `_shared`, `common` của ClaudeKit được chép kèm vì vài skill cần. Không chép tệp bí mật (`.env`, khoá), link và cache |
 | `/server` | Xem server đã khai báo, kèm nút **⚙️ Server A** / **⚙️ Server B**: bấm thì bot hỏi từng bước (host, port, tên đăng nhập, mật khẩu). Hoặc một dòng: `/server a\|b user@host[:port] mật-khẩu`. Tài khoản được ghi vào `.env.servers` của thư mục, chép `ssh-to.sh` và `CLAUDE.md` mẫu nếu chưa có; tin có mật khẩu bị xoá ngay. Không nhận thư mục nằm trong repo git (mật khẩu có thể bị commit) |
 | `/stop` | Dừng việc đang chạy và tắt tiến trình Claude của topic (cả các tiến trình nó mở). Lúc rảnh: chỉ tắt tiến trình để trả RAM |
 | `/topics` | Các topic đã gắn trong group |
 | `/unbind` | Bỏ gắn topic |
 | `/id` | ID chat / topic / người dùng |
+| `/help` | Tóm tắt ngắn các lệnh |
+| `/guide` | Hướng dẫn đầy đủ từng bước cho người mới (trả lời được cả khi nhắn riêng với bot) |
 
-Gõ `/` trong group sẽ hiện các lệnh trên; trong chat riêng với bot chỉ có `/id` và `/help` (bot chỉ làm việc trong group).
+Gõ `/` trong group sẽ hiện các lệnh trên; trong chat riêng với bot chỉ có `/id`, `/help` và `/guide` (bot chỉ làm việc trong group). Nếu menu "/" chưa hiện lệnh mới, bấm thẳng vào lệnh trong tin `/guide` hoặc `/help`: Telegram cho bấm các lệnh có dạng `/ten_lenh`.
 
 ## Cần biết
 
