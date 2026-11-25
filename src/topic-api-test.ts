@@ -4,7 +4,7 @@ export const API_TEST_TIMEOUT_MS = 8000
 const PROBE_PATH = '/v1/models'
 
 /**
- * Asks the API server (`GET /v1/models` with the token as a Bearer, like OpenClaw sends it) and says in Vietnamese
+ * Asks the API server (`GET /v1/models` with the token as a Bearer, like Claude Code sends it) and says in Vietnamese
  * what came back. Never throws; never contains the token. Redirects are not followed: the token must not travel on
  * to a host the user did not enter.
  */
