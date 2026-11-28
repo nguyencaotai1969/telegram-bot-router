@@ -2,6 +2,7 @@ import { isApiBaseUrl, isApiToken } from './config'
 import type { Reply } from './topic-model-choice'
 import { deleteSecret, NOT_DELETED } from './topic-server-config'
 import { errorText, type RunDeps, type TopicContext } from './topic-run'
+import { hasOwnApi, projectEnv } from './topic-api-settings'
 import { testApiConnection } from './topic-api-test'
 import type { TopicApi } from './topic-store'
 
@@ -44,17 +45,38 @@ export function apiPanel(deps: RunDeps, key: string, headline?: string, withUsag
         [{ text: api.enabled ? '🔴 Tắt API' : '🟢 Bật API', data: 'api:toggle' }, { text: '🧪 Test kết nối', data: 'api:test' }],
         [{ text: '✏️ Sửa', data: 'api:edit' }, { text: '🗑️ Xoá', data: 'api:clear' }],
       ]
-    : [[{ text: '✏️ Điền cấu hình', data: 'api:edit' }]]
+    : [
+        [{ text: '✏️ Điền cấu hình', data: 'api:edit' }],
+        ...(projectApiInUse(deps, key) ? [[{ text: '🔴 Tắt API của dự án', data: 'api:off' }]] : []),
+      ]
   const lines = [...(headline ? [headline] : []), apiLine(deps, key), ...(withUsage && !headline ? [USAGE] : [])]
   return { text: lines.join('\n'), buttons }
 }
 
 /** "🔌 API: BẬT → http://… · token …wxyz", for /api and /status. Never the whole token. */
 export function apiLine(deps: RunDeps, key: string): string {
-  const api = deps.store.get(key)?.api
-  if (!api) return '🔌 API: chưa cấu hình (Claude dùng đăng nhập của máy)'
+  const binding = deps.store.get(key)
+  if (binding?.apiOff) return '🔌 API: TẮT, Claude dùng đăng nhập của máy (/api clear: trả về cấu hình của dự án)'
+  const api = binding?.api
+  if (!api) {
+    const own = projectApiInUse(deps, key)
+    return own
+      ? `🔌 API: chưa cấu hình\n⚠️ Dự án tự khai API trong .claude/settings*.json${own.origin}, Claude đang dùng API đó. Gõ /disable_api để dùng đăng nhập của máy.`
+      : '🔌 API: chưa cấu hình (Claude theo cấu hình sẵn có của máy và dự án)'
+  }
   if (!api.enabled) return `🔌 API: TẮT (đã lưu ${api.baseUrl})`
   return `🔌 API: BẬT → ${api.baseUrl} · token ${maskToken(api.token)}`
+}
+
+/** The project's own API while nothing in /api overrides it. `origin`: " (https://host:port)", never the URL's login, path or query. */
+function projectApiInUse(deps: RunDeps, key: string): { origin: string } | undefined {
+  const binding = deps.store.get(key)
+  if (!binding || binding.api || binding.apiOff) return undefined
+  const env = projectEnv(binding.cwd)
+  if (!hasOwnApi(env)) return undefined
+  const url = env.ANTHROPIC_BASE_URL ?? ''
+  const origin = URL.canParse(url) ? new URL(url).origin : 'null'
+  return { origin: origin === 'null' ? '' : ` (${origin})` }
 }
 
 function maskToken(token: string): string {
@@ -68,11 +90,14 @@ export function testSaved(deps: RunDeps, key: string): Promise<string> | string 
   return testApiConnection(api.baseUrl, api.token, deps.config.apiTestTimeoutMs).then(result => `🧪 ${api.baseUrl}\n${result}`)
 }
 
-/** Turns the saved API server on or off; the answer says what happened. */
+/** Turns the saved API server on or off; off works with nothing saved too. The answer says what happened. */
 export function switchApi(deps: RunDeps, key: string, enabled: boolean): string {
-  const api = deps.store.get(key)?.api
-  if (!api) return deps.store.get(key) ? '⛔ Chưa có cấu hình API. Gõ /api để điền.' : BIND_FIRST
-  return apply(deps, key, { ...api, enabled }, enabled ? '✅ Đã bật API.' : '✅ Đã tắt API, Claude dùng lại đăng nhập của máy.')
+  const binding = deps.store.get(key)
+  if (!binding) return BIND_FIRST
+  const { api } = binding
+  if (enabled && !api) return '⛔ Chưa có cấu hình API. Gõ /api để điền.'
+  const done = enabled ? '✅ Đã bật API.' : '✅ Đã tắt API, Claude dùng lại đăng nhập của máy.'
+  return apply(deps, key, api ? { ...api, enabled } : 'off', done)
 }
 
 export function clearApi(deps: RunDeps, key: string): string {
@@ -92,7 +117,7 @@ function saveFromLine(deps: RunDeps, key: string, args: string): { ok: boolean; 
   return saveApi(deps, key, match[1], match[2])
 }
 
-function apply(deps: RunDeps, key: string, api: TopicApi | undefined, done: string): string {
+function apply(deps: RunDeps, key: string, api: TopicApi | 'off' | undefined, done: string): string {
   try {
     if (!deps.store.setApi(key, api)) return BIND_FIRST
   } catch (err) {

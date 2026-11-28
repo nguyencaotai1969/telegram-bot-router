@@ -5,7 +5,7 @@ import { deleteSecret, isHost, NOT_DELETED, parsePort } from './topic-server-con
 import { cancelServerSetup } from './topic-server-setup-steps'
 
 /**
- * The /api panel's buttons: `api:toggle`, `api:test`, `api:clear`, and `api:edit`, which starts a step-by-step setup
+ * The /api panel's buttons: `api:toggle`, `api:off`, `api:test`, `api:clear`, and `api:edit`, which starts a step-by-step setup
  * in that topic. Its answers (host, port, token) are the next messages of the person who pressed it, never work for
  * Claude. Any command ends it. In memory only: a restart forgets it.
  */
@@ -70,7 +70,13 @@ export async function onApiButton(
     return true
   }
   const headline =
-    action === 'toggle' ? toggle(deps, panel.key) : action === 'clear' ? clearApi(deps, panel.key) : '⛔ Nút không hợp lệ.'
+    action === 'toggle'
+      ? toggle(deps, panel.key)
+      : action === 'off'
+        ? switchApi(deps, panel.key, false)
+        : action === 'clear'
+          ? clearApi(deps, panel.key)
+          : '⛔ Nút không hợp lệ.'
   const redrawn = apiPanel(deps, panel.key, headline, false)
   // The redraw goes out first, in press order: a slow answer to an earlier press never paints over a later one.
   await Promise.all([
