@@ -19,8 +19,10 @@ export interface TopicBinding {
   sessionId?: string
   /** Model chosen for this topic (/model); absent = the router's default. Kept across /new and /bind. */
   model?: string
-  /** API server chosen for this topic (/api); absent = the user's own Claude login and settings. Kept across /new, dropped by /bind to another folder. */
+  /** API server chosen for this topic (/api); absent (and no `apiOff`) = the machine's and the project's own Claude settings. Kept across /new, dropped by /bind to another folder. */
   api?: TopicApi
+  /** Turned off with no server saved (/disable_api): the machine's login, whatever the project sets. Never beside `api`; kept and dropped like it. */
+  apiOff?: true
   /** How big that session has grown; goes with the session. */
   usage?: SessionUsage
   boundAt: number
@@ -81,9 +83,11 @@ export class TopicStore {
 
   bind(key: string, cwd: string, name?: string): void {
     const before = this.get(key)
-    const api = before?.cwd === cwd ? before.api : undefined // an API server belongs to its project
+    const sameProject = before?.cwd === cwd ? before : undefined // an API choice belongs to its project
+    const api = sameProject?.api
+    const apiOff = sameProject?.apiOff
     const model = before?.model
-    this.data.topics[key] = { cwd, boundAt: Date.now(), ...(name ? { name } : {}), ...(model ? { model } : {}), ...(api ? { api } : {}) }
+    this.data.topics[key] = { cwd, boundAt: Date.now(), ...(name ? { name } : {}), ...(model ? { model } : {}), ...(api ? { api } : {}), ...(apiOff ? { apiOff } : {}) }
     this.save()
   }
 
@@ -92,9 +96,14 @@ export class TopicStore {
     return this.edit(key, binding => (model === undefined ? delete binding.model : (binding.model = model)))
   }
 
-  /** Sets (or, with undefined, clears) the topic's API server. False when the topic is not bound. */
-  setApi(key: string, api: TopicApi | undefined): boolean {
-    return this.edit(key, binding => (api === undefined ? delete binding.api : (binding.api = { ...api })))
+  /** Sets the topic's API server or a plain 'off', or (undefined) forgets the choice. False when the topic is not bound. */
+  setApi(key: string, api: TopicApi | 'off' | undefined): boolean {
+    return this.edit(key, binding => {
+      delete binding.api
+      delete binding.apiOff
+      if (api === 'off') binding.apiOff = true
+      else if (api) binding.api = { ...api }
+    })
   }
 
   /** Applies `change` to the topic's binding and saves. Not saved, not applied: what the user is told stays true. */
@@ -181,7 +190,7 @@ export class TopicStore {
           ...(typeof value.name === 'string' ? { name: value.name.slice(0, 128) } : {}),
           ...(isSessionId(value.sessionId) ? { sessionId: value.sessionId, ...loadUsage(value.usage) } : {}),
           ...(isModelName(value.model) ? { model: value.model } : {}),
-          ...loadApi(value.api),
+          ...loadApi(value),
         }
       }
       const lastUpdateId = Number.isSafeInteger(raw.lastUpdateId) ? (raw.lastUpdateId as number) : 0
@@ -208,9 +217,9 @@ export class TopicStore {
   }
 }
 
-function loadApi(raw: unknown): { api?: TopicApi } {
-  const value = (raw ?? {}) as Partial<TopicApi>
-  if (!isApiBaseUrl(value.baseUrl) || !isApiToken(value.token)) return {}
+function loadApi(binding: Partial<TopicBinding>): Pick<TopicBinding, 'api' | 'apiOff'> {
+  const value = (binding.api ?? {}) as Partial<TopicApi>
+  if (!isApiBaseUrl(value.baseUrl) || !isApiToken(value.token)) return binding.apiOff === true ? { apiOff: true } : {}
   return { api: { enabled: value.enabled === true, baseUrl: value.baseUrl, token: value.token } }
 }
 

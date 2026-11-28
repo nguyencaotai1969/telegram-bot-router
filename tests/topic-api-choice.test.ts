@@ -1,8 +1,9 @@
 import { afterAll, describe, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseCommand } from '../src/command-parse'
+import { apiEnv } from '../src/topic-api-settings'
 import { TopicStore } from '../src/topic-store'
 import { topicMessage } from './helpers/fake-telegram'
 import { fact, routerHarness } from './helpers/router-harness'
@@ -302,6 +303,86 @@ describe('/api: API server per topic with test, on / off switch', () => {
     expect(readdirSync(topic.folder)).toEqual([]) // the token never lands in the project
   })
 
+  test('/disable-api means the machine login even when the project sets its own API in .claude/settings.local.json; /api clear gives the project its own back', async () => {
+    // Arrange
+    const { topic, work, say } = await apiTopic()
+    const PROJECT_API = 'http://project-own-api:1'
+    mkdirSync(join(topic.folder, '.claude'))
+    const projectEnv = { env: { ANTHROPIC_BASE_URL: PROJECT_API, ANTHROPIC_AUTH_TOKEN: 'project-token' } }
+    writeFileSync(join(topic.folder, '.claude', 'settings.local.json'), JSON.stringify(projectEnv))
+    await say(`/api ${BASE_URL} ${TOKEN}`)
+
+    // Act
+    const on = await work('router api on')
+    await say('/disable-api')
+    const off = await work('router api off')
+    await say('/api clear')
+    const cleared = await work('router api cleared')
+
+    // Assert
+    expect(fact(on, 'api')).toBe(`api:${BASE_URL}`)
+    expect(fact(off, 'api')).toBe('api:-')
+    expect(fact(off, 'apitoken')).toBe('apitoken:-')
+    expect(fact(cleared, 'api')).toBe(`api:${PROJECT_API}`)
+    expect(fact(cleared, 'session')).toBe(fact(on, 'session'))
+  })
+
+  const PROJECT_API = 'http://project-own-api:1'
+  function declareProjectApi(folder: string, projectEnv: Record<string, string>): void {
+    mkdirSync(join(folder, '.claude'), { recursive: true })
+    writeFileSync(join(folder, '.claude', 'settings.local.json'), JSON.stringify({ env: projectEnv }))
+  }
+
+  test('/disable_api with nothing saved turns the project\'s own API off; /status warns only while that API is in effect', async () => {
+    // Arrange
+    const { topic, work, say, lastAnswer } = await apiTopic()
+    declareProjectApi(topic.folder, { ANTHROPIC_BASE_URL: PROJECT_API, ANTHROPIC_AUTH_TOKEN: 'project-token' })
+    const before = await work('own-api project, first')
+    await say('/status')
+    const statusBefore = lastAnswer()
+
+    // Act
+    await say('/disable_api')
+    const answer = lastAnswer()
+    const off = await work('own-api project, disabled')
+    await say('/status')
+    const statusOff = lastAnswer()
+    await say('/api clear')
+    const clearedAnswer = lastAnswer()
+    const cleared = await work('own-api project, cleared')
+
+    // Assert
+    expect(fact(before, 'api')).toBe(`api:${PROJECT_API}`)
+    expect(statusBefore).toContain('⚠️ Dự án tự khai API')
+    expect(statusBefore).toContain(PROJECT_API)
+    expect(answer).toContain('Đã tắt API')
+    expect(fact(off, 'api')).toBe('api:-')
+    expect(fact(off, 'apitoken')).toBe('apitoken:-')
+    expect(fact(off, 'session')).toBe(fact(before, 'session'))
+    expect(statusOff).toContain('🔌 API: TẮT')
+    expect(statusOff).not.toContain('⚠️ Dự án tự khai API')
+    expect(clearedAnswer).toContain('⚠️ Dự án tự khai API')
+    expect(fact(cleared, 'api')).toBe(`api:${PROJECT_API}`)
+  })
+
+  test('the /api panel of a project with its own API offers a button that turns it off; only the origin of its URL is shown', async () => {
+    // Arrange
+    const { topic, panel, panelNow, tap } = await apiTopic()
+    declareProjectApi(topic.folder, { ANTHROPIC_BASE_URL: 'https://user:url-password@own-api:2/v1?key=url-secret' })
+    await topic.send('/api')
+    const offered = panel()
+
+    // Act
+    await tap('api:off')
+
+    // Assert
+    expect(offered?.buttons).toEqual([['api:edit'], ['api:off']])
+    expect(offered?.text).toContain('(https://own-api:2)')
+    expect(offered?.text).not.toMatch(/url-password|url-secret/)
+    expect(env.store.get(topic.key)?.apiOff).toBe(true)
+    expect(panelNow()).toContain('🔌 API: TẮT')
+  })
+
   test('an API change does not interrupt the work in progress and applies to the next', async () => {
     // Arrange
     const { topic, say, work } = await apiTopic()
@@ -463,5 +544,90 @@ describe('API in the topic store', () => {
     expect(loadBad({ enabled: 'yes', baseUrl: BASE_URL, token: TOKEN })?.enabled).toBe(false)
     expect(store.setApi('-100:9', undefined)).toBe(false)
     expect(existsSync(join(dir, 'topic-api'))).toBe(false)
+  })
+
+  test('a plain "off" survives a restart and a /bind to the same folder, and goes with another folder or a saved server', () => {
+    // Arrange
+    const file = join(dir, 'off.json')
+    const store = new TopicStore(file)
+    store.bind('-100:3', 'D:\\a')
+    store.setApi('-100:3', 'off')
+
+    // Act
+    store.bind('-100:3', 'D:\\a')
+    const sameFolder = new TopicStore(file).get('-100:3')
+    store.setApi('-100:3', { enabled: true, baseUrl: BASE_URL, token: TOKEN })
+    const withServer = new TopicStore(file).get('-100:3')
+    store.setApi('-100:3', 'off')
+    store.bind('-100:3', 'D:\\b')
+    const otherFolder = new TopicStore(file).get('-100:3')
+
+    // Assert
+    expect(sameFolder?.apiOff).toBe(true)
+    expect(withServer?.apiOff).toBeUndefined()
+    expect(otherFolder?.apiOff).toBeUndefined()
+  })
+})
+
+describe('the ANTHROPIC_* the router overrides', () => {
+  const folder = mkdtempSync(join(tmpdir(), 'api-env-'))
+  afterAll(() => rmSync(folder, { recursive: true, force: true }))
+
+  test('a project\'s ANTHROPIC_API_KEY is blanked too, so it neither stays in use nor travels to the topic\'s server; without one it is left alone', () => {
+    // Arrange
+    const on = { cwd: folder, api: { enabled: true, baseUrl: BASE_URL, token: TOKEN } }
+    const without = apiEnv(on)
+    mkdirSync(join(folder, '.claude'))
+    writeFileSync(join(folder, '.claude', 'settings.json'), `\uFEFF${JSON.stringify({ env: { ANTHROPIC_API_KEY: 'project-key' } })}`)
+
+    // Act
+    const whileOn = apiEnv(on)
+    const whileOff = apiEnv({ cwd: folder, apiOff: true })
+    const neverChosen = apiEnv({ cwd: folder })
+
+    // Assert
+    expect(without).toEqual({ ANTHROPIC_BASE_URL: BASE_URL, ANTHROPIC_AUTH_TOKEN: TOKEN })
+    expect(whileOn).toEqual({ ANTHROPIC_BASE_URL: BASE_URL, ANTHROPIC_AUTH_TOKEN: TOKEN, ANTHROPIC_API_KEY: '' })
+    expect(whileOff).toEqual({ ANTHROPIC_BASE_URL: '', ANTHROPIC_AUTH_TOKEN: '', ANTHROPIC_API_KEY: '' })
+    expect(neverChosen).toBeUndefined()
+  })
+
+  /** A new project folder whose settings.local.json holds `env`. */
+  function project(name: string, projectEnv: Record<string, string>): string {
+    const cwd = join(folder, name)
+    mkdirSync(join(cwd, '.claude'), { recursive: true })
+    writeFileSync(join(cwd, '.claude', 'settings.local.json'), JSON.stringify({ env: projectEnv }))
+    return cwd
+  }
+
+  test('model names that go with the project\'s own server are blanked when that server is overridden; without one they stay', () => {
+    // Arrange
+    const models = { ANTHROPIC_MODEL: 'proxy-model', ANTHROPIC_DEFAULT_OPUS_MODEL: 'proxy-opus', CLAUDE_CODE_SUBAGENT_MODEL: 'proxy-sub' }
+    const proxied = project('proxied', { ANTHROPIC_BASE_URL: 'http://proxy:1', ...models, MAX_THINKING_TOKENS: '2048' })
+    const modelOnly = project('model-only', models)
+
+    // Act
+    const off = apiEnv({ cwd: proxied, apiOff: true })
+    const on = apiEnv({ cwd: proxied, api: { enabled: true, baseUrl: BASE_URL, token: TOKEN } })
+    const ownModelKept = apiEnv({ cwd: modelOnly, api: { enabled: true, baseUrl: BASE_URL, token: TOKEN } })
+
+    // Assert
+    const blanked = { ANTHROPIC_MODEL: '', ANTHROPIC_DEFAULT_OPUS_MODEL: '', CLAUDE_CODE_SUBAGENT_MODEL: '' }
+    expect(off).toEqual({ ANTHROPIC_BASE_URL: '', ANTHROPIC_AUTH_TOKEN: '', ...blanked })
+    expect(on).toEqual({ ANTHROPIC_BASE_URL: BASE_URL, ANTHROPIC_AUTH_TOKEN: TOKEN, ...blanked })
+    expect(ownModelKept).toEqual({ ANTHROPIC_BASE_URL: BASE_URL, ANTHROPIC_AUTH_TOKEN: TOKEN })
+  })
+
+  test('off in a project without an API of its own overrides nothing: the machine\'s settings, an API among them, stay', () => {
+    // Arrange
+    const plain = project('plain', { MAX_THINKING_TOKENS: '2048' })
+
+    // Act
+    const plainOff = apiEnv({ cwd: plain, apiOff: true })
+    const savedOff = apiEnv({ cwd: plain, api: { enabled: false, baseUrl: BASE_URL, token: TOKEN } })
+
+    // Assert
+    expect(plainOff).toBeUndefined()
+    expect(savedOff).toBeUndefined()
   })
 })
